@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
-import toast from "react-hot-toast"
+import { useAuth } from "./AuthContext"
 
 const CartContext = createContext()
 
@@ -16,81 +16,147 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
   const [items, setItems] = useState([])
   const [isOpen, setIsOpen] = useState(false)
+  const { user, isAuthenticated } = useAuth()
 
+  // Cargar carrito del localStorage cuando el usuario se autentica
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart")
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart))
-      } catch (error) {
-        console.error("Error loading cart:", error)
+    if (isAuthenticated && user) {
+      const savedCart = localStorage.getItem(`cart_${user.nombreUsuario}`)
+      if (savedCart) {
+        try {
+          setItems(JSON.parse(savedCart))
+        } catch (error) {
+          console.error("Error loading cart from localStorage:", error)
+          setItems([])
+        }
       }
+    } else {
+      setItems([])
     }
-  }, [])
+  }, [isAuthenticated, user])
 
+  // Guardar carrito en localStorage cuando cambie
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(items))
-  }, [items])
+    if (isAuthenticated && user) {
+      localStorage.setItem(`cart_${user.nombreUsuario}`, JSON.stringify(items))
+    }
+  }, [items, isAuthenticated, user])
 
-  const addItem = (product, quantity = 1) => {
+  const addToCart = (product, quantity = 1, lote = null) => {
+    if (!isAuthenticated) {
+      console.warn("Usuario no autenticado, no se puede agregar al carrito")
+      return
+    }
+
+    console.log("=== AGREGANDO AL CARRITO ===")
+    console.log("Producto:", product)
+    console.log("Lote:", lote)
+    console.log("Cantidad:", quantity)
+
     setItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.id === product.id)
+      const productId = product.id_producto || product.id || product.idProducto
+      const existingItem = prevItems.find(
+        (item) =>
+          (item.id_producto || item.id || item.idProducto) === productId && item.conservante === product.conservante,
+      )
 
       if (existingItem) {
-        const updatedItems = prevItems.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item,
+        return prevItems.map((item) =>
+          (item.id_producto || item.id || item.idProducto) === productId && item.conservante === product.conservante
+            ? { ...item, quantity: item.quantity + quantity }
+            : item,
         )
-        toast.success(`${product.nombre} actualizado en el carrito`)
-        return updatedItems
       } else {
-        toast.success(`${product.nombre} agregado al carrito`)
-        return [...prevItems, { ...product, quantity }]
+        const newItem = {
+          ...product,
+          quantity,
+          id_producto: productId,
+          // Si se proporciona un lote específico, usarlo
+          loteId: lote?.idLote || lote?.id_lote || product.loteId,
+          codigoLote: lote?.codigoLote || lote?.codigo_lote || product.codigoLote,
+        }
+
+        console.log("Nuevo item agregado:", newItem)
+        return [...prevItems, newItem]
       }
     })
   }
 
-  const removeItem = (productId) => {
-    setItems((prevItems) => {
-      const item = prevItems.find((item) => item.id === productId)
-      if (item) {
-        toast.success(`${item.nombre} eliminado del carrito`)
-      }
-      return prevItems.filter((item) => item.id !== productId)
-    })
+  const removeFromCart = (productId) => {
+    setItems((prevItems) => prevItems.filter((item) => (item.id_producto || item.id || item.idProducto) !== productId))
   }
 
   const updateQuantity = (productId, quantity) => {
     if (quantity <= 0) {
-      removeItem(productId)
+      removeFromCart(productId)
       return
     }
 
-    setItems((prevItems) => prevItems.map((item) => (item.id === productId ? { ...item, quantity } : item)))
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        (item.id_producto || item.id || item.idProducto) === productId ? { ...item, quantity } : item,
+      ),
+    )
   }
 
   const clearCart = () => {
     setItems([])
-    toast.success("Carrito vaciado")
+    if (isAuthenticated && user) {
+      localStorage.removeItem(`cart_${user.nombreUsuario}`)
+    }
   }
 
-  const getTotalItems = () => {
+  const getDiscount = () => {
+    const totalItems = getCartItemsCount()
+    const discountGroups = Math.floor(totalItems / 10)
+    const discountPercentage = discountGroups * 1
+    const subtotal = items.reduce((total, item) => total + (item.precio_lista || item.precio || 0) * item.quantity, 0)
+    return (subtotal * discountPercentage) / 100
+  }
+
+  const getShipping = () => {
+    const subtotal = items.reduce((total, item) => total + (item.precio_lista || item.precio || 0) * item.quantity, 0)
+    const discount = getDiscount()
+    const subtotalWithDiscount = subtotal - discount
+    return subtotalWithDiscount >= 50 ? 0 : 5.0
+  }
+
+  const getCartTotal = () => {
+    const subtotal = items.reduce((total, item) => total + (item.precio_lista || item.precio || 0) * item.quantity, 0)
+    const discount = getDiscount()
+    const shipping = getShipping()
+    return subtotal - discount + shipping
+  }
+
+  const getSubtotal = () => {
+    return items.reduce((total, item) => total + (item.precio_lista || item.precio || 0) * item.quantity, 0)
+  }
+
+  const getCartItemsCount = () => {
     return items.reduce((total, item) => total + item.quantity, 0)
   }
 
-  const getTotalPrice = () => {
-    return items.reduce((total, item) => total + item.precio * item.quantity, 0)
+  const getTotalItems = () => {
+    return getCartItemsCount()
   }
 
   const value = {
     items,
     isOpen,
     setIsOpen,
-    addItem,
-    removeItem,
+    addToCart,
+    removeFromCart,
     updateQuantity,
     clearCart,
+    getCartTotal,
+    getCartItemsCount,
     getTotalItems,
-    getTotalPrice,
+    removeItem: removeFromCart,
+    getTotal: getCartTotal,
+    getItemCount: getCartItemsCount,
+    getDiscount,
+    getShipping,
+    getSubtotal,
   }
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

@@ -1,63 +1,70 @@
 import api from "./api";
 
 export const productService = {
-  getAll: async () => {
+  // Obtener todos los productos
+  getAllProducts: async () => {
     try {
-      console.log("Solicitando productos...");
       const response = await api.get("/productos");
-      console.log("Respuesta de productos:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Error en productService.getAll:", error);
-      console.error("Error response data:", error.response?.data);
+      console.error("Error al obtener productos:", error);
       throw error;
     }
   },
 
-  getById: async (id) => {
+  // Obtener producto por ID
+  getProductById: async (id) => {
     try {
-      console.log(`Solicitando producto con ID: ${id}`);
       const response = await api.get(`/productos/${id}`);
-      console.log("Respuesta de producto:", response.data);
       return response.data;
     } catch (error) {
-      console.error(`Error en productService.getById(${id}):`, error);
+      console.error("Error al obtener producto:", error);
       throw error;
     }
   },
 
-  create: async (productData) => {
+  // Crear nuevo producto
+  createProduct: async (productData) => {
     try {
-      console.log("Creando producto:", productData);
       const response = await api.post("/productos", productData);
-      console.log("Producto creado:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Error en productService.create:", error);
+      console.error("Error al crear producto:", error);
       throw error;
     }
   },
 
-  update: async (id, productData) => {
+  // Actualizar producto
+  updateProduct: async (id, productData) => {
     try {
-      console.log(`Actualizando producto ${id}:`, productData);
       const response = await api.put(`/productos/${id}`, productData);
-      console.log("Producto actualizado:", response.data);
       return response.data;
     } catch (error) {
-      console.error(`Error en productService.update(${id}):`, error);
+      console.error("Error al actualizar producto:", error);
       throw error;
     }
   },
 
-  delete: async (id) => {
+  // Eliminar producto
+  deleteProduct: async (id) => {
     try {
-      console.log(`Eliminando producto con ID: ${id}`);
       const response = await api.delete(`/productos/${id}`);
-      console.log("Producto eliminado:", response.data);
       return response.data;
     } catch (error) {
-      console.error(`Error en productService.delete(${id}):`, error);
+      console.error("Error al eliminar producto:", error);
+      throw error;
+    }
+  },
+
+  // Buscar productos
+  searchProducts: async (searchTerm) => {
+    try {
+      const response = await api.get(
+        `/productos/buscar?q=${encodeURIComponent(searchTerm)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error al buscar productos:", error);
       throw error;
     }
   },

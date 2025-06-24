@@ -3,181 +3,201 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, Building, ArrowRight } from "lucide-react"
-import { authService } from "../services/authService"
+import { Eye, EyeOff, User, Mail, Phone, MapPin } from "lucide-react"
+import { useAuth } from "../contexts/AuthContext"
+import toast from "react-hot-toast"
 
 const Register = () => {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState({
-    nombre: "",
-    identificacion: "",
-    telefono: "",
-    direccion: "",
-    tipo: "PERSONA_NATURAL",
-    usuario: {
-      nombreUsuario: "",
-      correo: "",
-      contrasena: "",
-    },
-  })
-  const [confirmPassword, setConfirmPassword] = useState("")
+  const { register } = useAuth()
+  const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+
+  const [formData, setFormData] = useState({
+    nombreUsuario: "",
+    correo: "",
+    contrasena: "",
+    confirmPassword: "",
+    nombre: "", // Solo nombre completo
+    identificacion: "", // Agregar identificación
+    telefono: "",
+    direccion: "",
+    tipo: "PERSONA_NATURAL", // Cambiar de tipoCliente a tipo
+  })
+
+  const [errors, setErrors] = useState({})
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+
+    // Limpiar error del campo cuando el usuario empiece a escribir
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }))
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors = {}
+
+    if (!formData.nombreUsuario.trim()) {
+      newErrors.nombreUsuario = "El nombre de usuario es obligatorio"
+    }
+
+    if (!formData.correo.trim()) {
+      newErrors.correo = "El correo es obligatorio"
+    } else if (!/\S+@\S+\.\S+/.test(formData.correo)) {
+      newErrors.correo = "El correo no es válido"
+    }
+
+    if (!formData.contrasena) {
+      newErrors.contrasena = "La contraseña es obligatoria"
+    } else if (formData.contrasena.length < 6) {
+      newErrors.contrasena = "La contraseña debe tener al menos 6 caracteres"
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Confirma tu contraseña"
+    } else if (formData.contrasena !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Las contraseñas no coinciden"
+    }
+
+    if (!formData.nombre.trim()) {
+      newErrors.nombre = "El nombre es obligatorio"
+    }
+
+    if (!formData.identificacion.trim()) {
+      newErrors.identificacion = "La identificación es obligatoria"
+    }
+
+    if (!formData.telefono.trim()) {
+      newErrors.telefono = "El teléfono es obligatorio"
+    }
+
+    if (!formData.direccion.trim()) {
+      newErrors.direccion = "La dirección es obligatoria"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError("")
 
-    if (formData.usuario.contrasena !== confirmPassword) {
-      setError("Las contraseñas no coinciden")
-      setLoading(false)
+    if (!validateForm()) {
+      toast.error("Por favor corrige los errores en el formulario")
       return
     }
 
+    setLoading(true)
+
     try {
-      console.log("Enviando datos de registro:", formData)
-      await authService.register(formData)
-      navigate("/login", {
-        state: { message: "Registro exitoso. Por favor inicia sesión." },
-      })
-    } catch (err) {
-      console.error("Error en registro:", err)
-      setError(err.response?.data?.message || err.message || "Error al registrarse")
+      // Preparar datos para el backend
+      const registrationData = {
+        nombreUsuario: formData.nombreUsuario,
+        correo: formData.correo,
+        contrasena: formData.contrasena,
+        nombre: formData.nombre,
+        identificacion: formData.identificacion,
+        telefono: formData.telefono,
+        direccion: formData.direccion,
+        tipo: formData.tipo,
+      }
+
+      console.log("Datos de registro a enviar:", registrationData)
+
+      const result = await register(registrationData)
+
+      if (result.success) {
+        toast.success("¡Registro exitoso! Ya puedes iniciar sesión")
+        navigate("/login")
+      } else {
+        toast.error(result.message || "Error al registrar usuario")
+      }
+    } catch (error) {
+      console.error("Error en registro:", error)
+      toast.error("Error al registrar usuario")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
-
-    if (name.startsWith("usuario.")) {
-      const userField = name.split(".")[1]
-      setFormData((prev) => ({
-        ...prev,
-        usuario: {
-          ...prev.usuario,
-          [userField]: value,
-        },
-      }))
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }))
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="max-w-2xl w-full"
+        className="max-w-2xl w-full space-y-8"
       >
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-center mb-8"
-          >
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Crear Cuenta</h2>
-            <p className="text-gray-600">Únete a Atunes del Pacífico</p>
-          </motion.div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6"
-            >
-              {error}
-            </motion.div>
-          )}
+        <div className="bg-white rounded-lg shadow-xl p-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">Crear Cuenta</h2>
+            <p className="mt-2 text-gray-600">Únete a Atunes del Pacífico</p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Información de Usuario */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre de Usuario *</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
-                    name="nombre"
-                    value={formData.nombre}
+                    name="nombreUsuario"
+                    value={formData.nombreUsuario}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Juan Pérez"
-                    required
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.nombreUsuario ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="Tu nombre de usuario"
                   />
                 </div>
-              </motion.div>
+                {errors.nombreUsuario && <p className="mt-1 text-sm text-red-600">{errors.nombreUsuario}</p>}
+              </div>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre de Usuario</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    name="usuario.nombreUsuario"
-                    value={formData.usuario.nombreUsuario}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="juan_perez"
-                    required
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico *</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="email"
-                    name="usuario.correo"
-                    value={formData.usuario.correo}
+                    name="correo"
+                    value={formData.correo}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="juan@email.com"
-                    required
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.correo ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="tu@email.com"
                   />
                 </div>
-              </motion.div>
+                {errors.correo && <p className="mt-1 text-sm text-red-600">{errors.correo}</p>}
+              </div>
+            </div>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Identificación/RUC</label>
+            {/* Contraseñas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña *</label>
                 <div className="relative">
-                  <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    name="identificacion"
-                    value={formData.identificacion}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="12345678901"
-                    required
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type={showPassword ? "text" : "password"}
-                    name="usuario.contrasena"
-                    value={formData.usuario.contrasena}
+                    name="contrasena"
+                    value={formData.contrasena}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="••••••••"
-                    required
+                    className={`w-full pl-4 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.contrasena ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="Mínimo 6 caracteres"
                   />
                   <button
                     type="button"
@@ -187,19 +207,21 @@ const Register = () => {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-              </motion.div>
+                {errors.contrasena && <p className="mt-1 text-sm text-red-600">{errors.contrasena}</p>}
+              </div>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña *</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="••••••••"
-                    required
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className={`w-full pl-4 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.confirmPassword ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="Repite tu contraseña"
                   />
                   <button
                     type="button"
@@ -209,10 +231,47 @@ const Register = () => {
                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-              </motion.div>
+                {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
+              </div>
+            </div>
 
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+            {/* Información Personal */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo *</label>
+                <input
+                  type="text"
+                  name="nombre"
+                  value={formData.nombre}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.nombre ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="Tu nombre completo"
+                />
+                {errors.nombre && <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Identificación *</label>
+                <input
+                  type="text"
+                  name="identificacion"
+                  value={formData.identificacion}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.identificacion ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="RUT o Cédula"
+                />
+                {errors.identificacion && <p className="mt-1 text-sm text-red-600">{errors.identificacion}</p>}
+              </div>
+            </div>
+
+            {/* Contacto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
@@ -220,77 +279,76 @@ const Register = () => {
                     name="telefono"
                     value={formData.telefono}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="+1 234 567 8900"
-                    required
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.telefono ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="+56 9 1234 5678"
                   />
                 </div>
-              </motion.div>
+                {errors.telefono && <p className="mt-1 text-sm text-red-600">{errors.telefono}</p>}
+              </div>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 }}>
+              {/* Tipo de Cliente */}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Cliente</label>
                 <select
                   name="tipo"
                   value={formData.tipo}
                   onChange={handleChange}
-                  className="w-full py-3 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="PERSONA_NATURAL">Persona Natural</option>
                   <option value="EMPRESA">Empresa</option>
                 </select>
-              </motion.div>
+              </div>
             </div>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+            {/* Dirección y Empresa */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-                <textarea
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
                   name="direccion"
                   value={formData.direccion}
                   onChange={handleChange}
-                  rows={3}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                  placeholder="Av. Principal 123, Ciudad, País"
-                  required
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.direccion ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="Tu dirección completa"
                 />
               </div>
-            </motion.div>
+              {errors.direccion && <p className="mt-1 text-sm text-red-600">{errors.direccion}</p>}
+            </div>
 
+            {/* Botón de Registro */}
             <motion.button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
             >
               {loading ? (
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Registrando...
+                </div>
               ) : (
-                <>
-                  <span>Crear Cuenta</span>
-                  <ArrowRight className="w-5 h-5" />
-                </>
+                "Crear Cuenta"
               )}
             </motion.button>
           </form>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            className="mt-8 text-center"
-          >
+          <div className="mt-6 text-center">
             <p className="text-gray-600">
               ¿Ya tienes una cuenta?{" "}
-              <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+              <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
                 Inicia sesión aquí
               </Link>
             </p>
-          </motion.div>
+          </div>
         </div>
       </motion.div>
     </div>

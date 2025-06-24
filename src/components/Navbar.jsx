@@ -3,16 +3,17 @@
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { ShoppingCart, User, Menu, X, LogOut, Package, Settings, History } from "lucide-react"
+import { ShoppingCart, User, Menu, X, LogOut, Settings, History } from "lucide-react"
 import { useAuth } from "../contexts/AuthContext"
 import { useCart } from "../contexts/CartContext"
+import Logo from "../img/Logo.png"
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const { user, isAuthenticated, logout, hasRole, getDashboardPath } = useAuth()
-  const { getTotalItems, setIsOpen } = useCart()
+  const { getTotalItems } = useCart()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -35,6 +36,12 @@ const Navbar = () => {
     setIsUserMenuOpen(false)
   }
 
+  // Función auxiliar para obtener el nombre del rol de forma segura
+  const getRoleName = () => {
+    if (!user || !user.rol) return "Usuario"
+    return typeof user.rol === "string" ? user.rol : user.rol.nombre
+  }
+
   return (
     <motion.nav
       initial={{ y: -100 }}
@@ -47,24 +54,22 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
-                <Package className="w-6 h-6 text-white" />
-              </div>
+            <Link to="/" className="flex items-center space-x-3">
+              <img src={Logo || "/placeholder.svg"} alt="Atunes del Pacífico" className="w-12 h-12 object-contain" />
               <span className="text-xl font-bold text-gray-900">Atunes del Pacífico</span>
             </Link>
           </motion.div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium">
+            <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
               Inicio
             </Link>
 
             {isAuthenticated && !hasRole("ADMINISTRADOR") && !hasRole("OPERADOR") && (
               <Link
                 to="/orders"
-                className="text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium"
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
               >
                 Mis Pedidos
               </Link>
@@ -78,8 +83,8 @@ const Navbar = () => {
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => setIsOpen(true)}
-                className="relative p-2 text-gray-700 hover:text-primary-600 transition-colors duration-200"
+                onClick={() => navigate("/cart")}
+                className="relative p-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
               >
                 <ShoppingCart className="w-6 h-6" />
                 {getTotalItems() > 0 && (
@@ -103,7 +108,7 @@ const Navbar = () => {
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 >
-                  <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <User className="w-4 h-4 text-white" />
                   </div>
                   <span className="hidden md:block text-sm font-medium text-gray-700">{user?.nombreUsuario}</span>
@@ -120,7 +125,7 @@ const Navbar = () => {
                       <div className="px-4 py-2 border-b border-gray-200">
                         <p className="text-sm font-medium text-gray-900">{user?.nombreUsuario}</p>
                         <p className="text-xs text-gray-500">{user?.correo}</p>
-                        <p className="text-xs text-blue-600 font-medium">{user?.rol?.nombre}</p>
+                        <p className="text-xs text-blue-600 font-medium">{getRoleName()}</p>
                       </div>
 
                       {/* Dashboard para Admin y Operador */}
@@ -161,11 +166,14 @@ const Navbar = () => {
               <div className="flex items-center space-x-2">
                 <Link
                   to="/login"
-                  className="text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium"
+                  className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
                 >
                   Iniciar Sesión
                 </Link>
-                <Link to="/register" className="btn-primary">
+                <Link
+                  to="/register"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                >
                   Registrarse
                 </Link>
               </div>
@@ -175,7 +183,7 @@ const Navbar = () => {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 text-gray-700 hover:text-primary-600 transition-colors duration-200"
+              className="md:hidden p-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
             >
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </motion.button>
@@ -194,7 +202,7 @@ const Navbar = () => {
               <div className="flex flex-col space-y-4">
                 <Link
                   to="/"
-                  className="text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium"
+                  className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Inicio
@@ -209,7 +217,7 @@ const Navbar = () => {
                           handleDashboardClick()
                           setIsMenuOpen(false)
                         }}
-                        className="text-left text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium"
+                        className="text-left text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
                       >
                         Dashboard
                       </button>
@@ -219,7 +227,7 @@ const Navbar = () => {
                     {!hasRole("ADMINISTRADOR") && !hasRole("OPERADOR") && (
                       <Link
                         to="/orders"
-                        className="text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium"
+                        className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         Mis Pedidos
@@ -237,14 +245,14 @@ const Navbar = () => {
                   <>
                     <Link
                       to="/login"
-                      className="text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium"
+                      className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Iniciar Sesión
                     </Link>
                     <Link
                       to="/register"
-                      className="text-gray-700 hover:text-primary-600 transition-colors duration-200 font-medium"
+                      className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Registrarse

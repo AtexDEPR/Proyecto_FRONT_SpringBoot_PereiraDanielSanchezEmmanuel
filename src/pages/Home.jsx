@@ -1,20 +1,28 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
-import { Star, ShoppingCart, Truck, Shield, Award } from "lucide-react"
 import { productService } from "../services/productService"
 import { useCart } from "../contexts/CartContext"
 import { useAuth } from "../contexts/AuthContext"
 import LoadingSpinner from "../components/LoadingSpinner"
 import toast from "react-hot-toast"
 
+// Importar las imágenes de productos
+import AtunAceite from "../img/AtunAceite.webp"
+import AtunAgua from "../img/AtunAgua.webp"
+import AtunTomate from "../img/AtunSalsa.webp"
+import Logo from "../img/Logo.png"
+
 const Home = () => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const { addItem } = useCart()
-  const { isAuthenticated } = useAuth()
+  const [error, setError] = useState(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterConservante, setFilterConservante] = useState("")
+
+  const { addToCart } = useCart()
+  const { isAuthenticated, user } = useAuth()
 
   useEffect(() => {
     loadProducts()
@@ -22,14 +30,43 @@ const Home = () => {
 
   const loadProducts = async () => {
     try {
-      const response = await productService.getAll()
-      if (response.success) {
+      setLoading(true)
+      setError(null)
+
+      const response = await productService.getAllProducts()
+      console.log("Productos recibidos:", response)
+
+      if (response.success && Array.isArray(response.data)) {
         setProducts(response.data)
+      } else if (Array.isArray(response)) {
+        setProducts(response)
+      } else {
+        console.error("Formato de respuesta inesperado:", response)
+        setError("Error al cargar productos: formato de respuesta inválido")
       }
     } catch (error) {
-      toast.error("Error al cargar los productos")
+      console.error("Error loading products:", error)
+      if (error.response?.status === 401) {
+        setError("Error de autorización al cargar productos")
+      } else {
+        setError("Error al cargar productos. Por favor intenta de nuevo.")
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Función para obtener la imagen correcta según el tipo de conservante
+  const getProductImage = (conservante, nombre) => {
+    switch (conservante) {
+      case "ACEITE":
+        return AtunAceite
+      case "AGUA":
+        return AtunAgua
+      case "SALSA":
+        return AtunTomate
+      default:
+        return AtunAceite // Imagen por defecto
     }
   }
 
@@ -39,262 +76,201 @@ const Home = () => {
       return
     }
 
-    // Adaptar la estructura del producto para el carrito
-    const cartProduct = {
-      id: product.idProducto,
-      nombre: product.nombre,
-      precio: product.precioLista,
-      descripcion: `${product.conservante} - ${product.contenidoGramos}g`,
-      ...product,
+    try {
+      // Mapear los campos del backend al formato esperado por el carrito
+      const cartProduct = {
+        id: product.idProducto,
+        nombre: product.nombre,
+        descripcion: product.descripcion,
+        precio: product.precioLista,
+        contenido_g: product.contenidoG,
+        conservante: product.conservante,
+      }
+
+      addToCart(cartProduct)
+      toast.success(`${product.nombre} agregado al carrito`)
+    } catch (error) {
+      console.error("Error al agregar al carrito:", error)
+      toast.error("Error al agregar producto al carrito")
     }
-
-    addItem(cartProduct)
   }
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        duration: 0.5,
-      },
-    },
-  }
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch =
+      product.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesFilter = !filterConservante || product.conservante === filterConservante
+    return matchesSearch && matchesFilter
+  })
 
   if (loading) {
     return <LoadingSpinner />
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <motion.section
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1 }}
-        className="relative bg-gradient-to-r from-primary-600 to-primary-800 text-white py-20 overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <motion.h1
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.8 }}
-              className="text-4xl md:text-6xl font-bold mb-6"
-            >
-              Atunes del Pacífico
-            </motion.h1>
-            <motion.p
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto"
-            >
-              Los mejores productos de atún del Pacífico, con la más alta calidad y frescura
-            </motion.p>
-            <motion.div
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center"
-            >
-              <Link
-                to="#productos"
-                className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 transform hover:scale-105"
-              >
-                Ver Productos
-              </Link>
-              {!isAuthenticated && (
-                <Link
-                  to="/register"
-                  className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-all duration-300 transform hover:scale-105"
-                >
-                  Crear Cuenta
-                </Link>
-              )}
-            </motion.div>
+      <section className="bg-gradient-to-br from-blue-600 to-blue-800 text-white py-20">
+        <div className="container mx-auto px-4 text-center">
+          <div className="flex justify-center mb-6">
+            <img src={Logo || "/placeholder.svg"} alt="Atunes del Pacífico" className="w-24 h-24 object-contain" />
           </div>
-        </div>
-
-        {/* Floating elements */}
-        <motion.div
-          animate={{ y: [0, -20, 0] }}
-          transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY }}
-          className="absolute top-20 left-10 w-20 h-20 bg-white/10 rounded-full"
-        />
-        <motion.div
-          animate={{ y: [0, 20, 0] }}
-          transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY }}
-          className="absolute bottom-20 right-10 w-16 h-16 bg-white/10 rounded-full"
-        />
-      </motion.section>
-
-      {/* Features Section */}
-      <motion.section
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        className="py-16 bg-white"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <motion.div variants={itemVariants} className="text-center">
-              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Truck className="w-8 h-8 text-primary-600" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Envío Rápido</h3>
-              <p className="text-gray-600">Entrega en 24-48 horas en toda la región</p>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="text-center">
-              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-primary-600" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Calidad Garantizada</h3>
-              <p className="text-gray-600">Productos frescos con certificación de calidad</p>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="text-center">
-              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="w-8 h-8 text-primary-600" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Experiencia</h3>
-              <p className="text-gray-600">Más de 20 años en la industria pesquera</p>
-            </motion.div>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Products Section */}
-      <motion.section
-        id="productos"
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        className="py-16 bg-gray-50"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div variants={itemVariants} className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Nuestros Productos</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Descubre nuestra selección de atún premium del Pacífico
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.map((product, index) => (
-              <motion.div
-                key={product.idProducto}
-                variants={itemVariants}
-                whileHover={{ y: -10 }}
-                className="card overflow-hidden group"
-              >
-                <div className="aspect-w-16 aspect-h-12 bg-gray-200 overflow-hidden">
-                  <img
-                    src={`/placeholder.svg?height=300&width=400&text=${encodeURIComponent(product.nombre)}`}
-                    alt={product.nombre}
-                    className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                </div>
-
-                <div className="p-6">
-                  <div className="flex items-center mb-2">
-                    <div className="flex text-yellow-400">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-current" />
-                      ))}
-                    </div>
-                    <span className="text-sm text-gray-500 ml-2">(4.8)</span>
-                  </div>
-
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{product.nombre}</h3>
-
-                  <p className="text-gray-600 mb-4 line-clamp-2">
-                    {product.conservante} - {product.contenidoGramos}g
-                  </p>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-2xl font-bold text-primary-600">${product.precioLista?.toFixed(2)}</span>
-                      <span className="text-sm text-gray-500 ml-1">por unidad</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex gap-2">
-                    <Link
-                      to={`/product/${product.idProducto}`}
-                      className="flex-1 bg-gray-100 text-gray-800 py-2 px-4 rounded-lg text-center hover:bg-gray-200 transition-colors duration-200"
-                    >
-                      Ver Detalles
-                    </Link>
-
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleAddToCart(product)}
-                      className="flex-1 btn-primary flex items-center justify-center gap-2"
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                      Agregar
-                    </motion.button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* CTA Section */}
-      <motion.section
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        className="py-16 bg-primary-600 text-white"
-      >
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <motion.h2
-            initial={{ y: 30, opacity: 0 }}
-            whileInView={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-3xl md:text-4xl font-bold mb-4"
-          >
-            ¿Listo para probar la calidad del Pacífico?
-          </motion.h2>
-          <motion.p
-            initial={{ y: 30, opacity: 0 }}
-            whileInView={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-xl mb-8"
-          >
-            Únete a miles de clientes satisfechos que confían en nosotros
-          </motion.p>
+          <h1 className="text-4xl md:text-6xl font-bold mb-4">Atunes del Pacífico</h1>
+          <p className="text-xl md:text-2xl mb-8">Los mejores productos del mar, directo a tu mesa</p>
           {!isAuthenticated && (
-            <motion.div initial={{ y: 30, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} transition={{ delay: 0.6 }}>
+            <div className="space-x-4">
+              <Link
+                to="/login"
+                className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+              >
+                Iniciar Sesión
+              </Link>
               <Link
                 to="/register"
-                className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 inline-block"
+                className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors"
               >
-                Crear Cuenta Gratis
+                Registrarse
               </Link>
-            </motion.div>
+            </div>
           )}
         </div>
-      </motion.section>
+      </section>
+
+      {/* Products Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Nuestros Productos</h2>
+
+          {error ? (
+            <div className="text-center py-12">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-8 max-w-md mx-auto">
+                <h3 className="text-xl font-semibold text-red-800 mb-4">Error al cargar productos</h3>
+                <p className="text-red-700 mb-6">{error}</p>
+                <button
+                  onClick={loadProducts}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Reintentar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Filters */}
+              <div className="mb-8 flex flex-col md:flex-row gap-4 justify-center">
+                <input
+                  type="text"
+                  placeholder="Buscar productos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <select
+                  value={filterConservante}
+                  onChange={(e) => setFilterConservante(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="ACEITE">En Aceite</option>
+                  <option value="AGUA">Al Agua</option>
+                  <option value="SALSA">En Salsa</option>
+                </select>
+              </div>
+
+              {/* Products Grid */}
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-600 text-lg">
+                    {searchTerm || filterConservante
+                      ? "No se encontraron productos con los filtros aplicados"
+                      : "No hay productos disponibles"}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+                  {filteredProducts.map((product) => (
+                    <div
+                      key={product.idProducto}
+                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                    >
+                      <div className="h-48 bg-gray-50 flex items-center justify-center p-4">
+                        <img
+                          src={getProductImage(product.conservante, product.nombre) || "/placeholder.svg"}
+                          alt={product.nombre}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            e.target.src = `/placeholder.svg?height=200&width=300&text=${encodeURIComponent(product.nombre)}`
+                          }}
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-lg mb-2">{product.nombre}</h3>
+                        <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                          {product.descripcion || "Producto de alta calidad"}
+                        </p>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-gray-500">{product.contenidoG}g</span>
+                          <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {product.conservante === "ACEITE" && "En Aceite"}
+                            {product.conservante === "AGUA" && "Al Agua"}
+                            {product.conservante === "SALSA" && "En Salsa"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xl font-bold text-green-600">
+                            ${product.precioLista?.toLocaleString() || "0"}
+                          </span>
+                          <div className="space-x-2">
+                            <Link
+                              to={`/product/${product.idProducto}`}
+                              className="bg-gray-100 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-200 transition-colors"
+                            >
+                              Ver
+                            </Link>
+                            {isAuthenticated ? (
+                              <button
+                                onClick={() => handleAddToCart(product)}
+                                className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+                              >
+                                Agregar
+                              </button>
+                            ) : (
+                              <Link
+                                to="/login"
+                                className="bg-gray-400 text-white px-3 py-1 rounded text-sm hover:bg-gray-500 transition-colors"
+                              >
+                                Login
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section className="bg-gray-100 py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-8">Sobre Nosotros</h2>
+            <p className="text-lg text-gray-700 mb-6">
+              Atunes del Pacífico S.A. es una empresa líder en la producción y distribución de productos de atún de la
+              más alta calidad. Con años de experiencia en el sector, nos especializamos en ofrecer atún en aceite, al
+              agua y en salsa, garantizando frescura y sabor en cada producto.
+            </p>
+            <p className="text-lg text-gray-700">
+              Nuestro compromiso es brindar productos nutritivos y deliciosos, manteniendo los más altos estándares de
+              calidad y sostenibilidad en todos nuestros procesos de producción.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
